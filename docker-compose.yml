@@ -1,0 +1,50 @@
+
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: postgres_nims
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=salman
+      - POSTGRES_DB=network_intrusion_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - app-network
+
+  nims-backend-svc:
+    image: salman484/nims-backend-svc:latest 
+    build: 
+      context: .
+      dockerfile: Backend/Dockerfile  # Fixed: Correct Dockerfile path
+    container_name: nims-backend
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=network_intrusion_db;Username=postgres;Password=salman 
+      - Jwt__Key=MIIJQwIBADANBgkqhkiG9w0BAQEFAASCCS0wg
+      - Jwt__Audience=NetworkIntrusionSystemUsers
+      - Jwt__Issuer=NetworkIntrusionSystem
+    ports:
+      - "5198:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
