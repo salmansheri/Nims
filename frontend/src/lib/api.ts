@@ -1,7 +1,18 @@
 import axios from "axios";
 import { getToken, removeToken } from "./auth";
 
-const API_BASE_URL = process.env.NEXT_BACKEND_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+export interface Intrusion {
+  id: number;
+  sourceIP: string;
+  destinationIP: string;
+  protocol: string;
+  attackType: string;
+  severity: number;
+  detectedAt: string;
+  isResolved: boolean;
+}
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -17,16 +28,16 @@ api.interceptors.request.use((config) => {
 });
 
 // Handle token expiration
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      removeToken();
-      window.location.href = "/login";
-    }
-    return Promise.reject(error);
-  },
-);
+// api.interceptors.response.use(
+//   (response) => response,
+//   (error) => {
+//     if (error.response?.status === 401) {
+//       removeToken();
+//       window.location.href = "/login";
+//     }
+//     return Promise.reject(error);
+//   },
+// );
 
 export const authAPI = {
   login: (credentials: { email: string; password: string }) =>

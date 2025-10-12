@@ -94,10 +94,16 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-app.UseAuthorization();
+app.UseRouting(); 
+app.UseCors("AllowFrontend");
+app.UseAuthentication(); // ✅ Correct: Authentication first
+app.UseAuthorization(); // ✅ Correct: Authorization second
 
 app.MapControllers();
+
+
+
+app.MapHub<AlertHub>("/alerthub"); 
 
 using (var scope = app.Services.CreateScope())
 {

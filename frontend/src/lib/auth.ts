@@ -1,30 +1,30 @@
 export const setToken = (token: string) => {
   try {
-    const cookieString = `token=${token}; path=/; max-age=604800; SameSite=Strict`;
-    document.cookie = cookieString;
-    return cookieString;
+    localStorage.setItem("token", token);
+
+    const tokenFromLS = localStorage.getItem("token");
+
+    if (tokenFromLS === token) {
+      return true;
+    }
   } catch (error) {
-    return "";
+    return false;
   }
 };
 
 export const getToken = (): string | null => {
-  if (typeof document === "undefined") return null;
+  const token = localStorage.getItem("token");
 
-  const cookieString = document.cookie;
-  const cookies = cookieString.split(";");
-
-  for (const cookie of cookies) {
-    const [name, value] = cookie.trim().split("=");
-    if (name === "token") {
-      return decodeURIComponent(value);
-    }
-  }
-  return null;
+  return token;
 };
 
 export const removeToken = () => {
-  document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
+  try {
+    localStorage.removeItem("token");
+    return true;
+  } catch (error) {
+    return false;
+  }
 };
 
 export const isAuthenticated = (): boolean => {
