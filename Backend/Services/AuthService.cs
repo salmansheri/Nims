@@ -9,8 +9,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using System.Text;
-using Npgsql.Internal;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
+
 
 
 
@@ -22,13 +21,16 @@ public class AuthService : IAuthService
     private readonly ILogger<AuthService> _logger;
     private readonly IConfiguration _configuration;
     private readonly RoleManager<IdentityRole> _roleManager; 
+    private readonly IRedisService _redisService; 
 
-    public AuthService(UserManager<IdentityUser> userManager, ILogger<AuthService> logger, IConfiguration configuration, RoleManager<IdentityRole> roleManager)
+
+    public AuthService(UserManager<IdentityUser> userManager, ILogger<AuthService> logger, IConfiguration configuration, RoleManager<IdentityRole> roleManager, IRedisService redisService)
     {
         _userManager = userManager;
         _logger = logger;
         _configuration = configuration;
         _roleManager = roleManager;
+        _redisService = redisService; 
     }
     public async Task<IdentityUser?> GetUserByEmail(string email)
     {
@@ -51,7 +53,7 @@ public class AuthService : IAuthService
 
     }
 
-    public async Task<string> Login(LoginDto request)
+    public async Task<AuthResponseDto> Login(LoginDto request)
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
 
@@ -60,12 +62,21 @@ public class AuthService : IAuthService
             throw new Exception("Invalid Credentials");
         }
 
-        return GenerateJwtToken(user); 
+        var token = GenerateJwtToken(user);
+
+        await _redisService.SetTokenAsync(user.Id, token, TimeSpan.FromDays(7));
+
+        return new AuthResponseDto
+        {
+            UserId = user.Id,
+            Email = user.Email!,
+            Token = token
+        }; 
 
 
     }
 
-    public async Task<string> Register(RegisterDto request)
+    public async Task<AuthResponseDto> Register(RegisterDto request)
     {
         var existingUser = _userManager.FindByEmailAsync(request.Email);
 
@@ -90,17 +101,37 @@ public class AuthService : IAuthService
 
         var roleName = "User";
 
-        var roleExists = await _roleManager.RoleExistsAsync(roleName); 
+        var roleExists = await _roleManager.RoleExistsAsync(roleName);
 
         if (!roleExists)
         {
-            await _roleManager.CreateAsync(new IdentityRole(roleName)); 
+            await _roleManager.CreateAsync(new IdentityRole(roleName));
         }
 
         // Add user to default role 
         await _userManager.AddToRoleAsync(user, "User");
 
-        return GenerateJwtToken(user); 
+        var token = GenerateJwtToken(user);
+
+        await _redisService.SetTokenAsync(user.Id, token, TimeSpan.FromDays(7));
+
+        return new AuthResponseDto
+        {
+              UserId = user.Id,
+            Email = user.Email!,
+            Token = token
+            
+        };
+    }
+
+    public async Task<bool> Logout(string userId)
+    {
+        return await _redisService.RemoveTokenAsync(userId);
+    }
+
+    public async Task<bool> ValidateToken(string userId, string token)
+    {
+        return await _redisService.isTokenValidAsync(userId, token); 
     }
 
     private string GenerateJwtToken(IdentityUser user)

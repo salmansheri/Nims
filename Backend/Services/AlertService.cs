@@ -73,6 +73,13 @@ public class AlertService: IAlertService
             return null!;
         }
 
-        return alerts; 
+        return alerts;
     }
+
+    public async Task<int> GetUnacknowledgedCountAsync()
+    {
+        return await _context.Alerts.CountAsync(a => !a.IsAcknowledged); 
+    }
+    
+    
 }

@@ -11,6 +11,7 @@ public interface IIntrusionService
     Task ResolveIntrusionAsync(int id, string resolvedByUserId);
     Task<List<IntrusionDetection>> GetRecentIntrusionsAsync(int count = 10);
     Task<DashboardStats> GetDashboardStatsAsync();
+    Task<List<IntrusionDetection>> SearchIntrusionAsync(string searchTerm); 
 
 }
 

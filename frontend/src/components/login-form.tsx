@@ -37,9 +37,9 @@ export default function LoginForm() {
           router.refresh();
         }, 50);
       }
-    // biome-ignore lint/correctness/noUnusedVariables: for
-    // biome-ignore lint/suspicious/noExplicitAny: for
-        } catch (error: any) {
+      // biome-ignore lint/correctness/noUnusedVariables: for
+      // biome-ignore lint/suspicious/noExplicitAny: for
+    } catch (error: any) {
     } finally {
       setIsLoading(false);
     }

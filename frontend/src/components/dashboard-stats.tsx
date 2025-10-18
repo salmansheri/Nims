@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import type React from "react";
 import { motion } from "motion/react";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 

@@ -21,29 +21,39 @@ services:
     networks:
       - app-network
 
-  nims-backend-svc:
-    image: salman484/nims-backend-svc:latest 
-    build: 
-      context: .
-      dockerfile: Backend/Dockerfile  # Fixed: Correct Dockerfile path
-    container_name: nims-backend
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=network_intrusion_db;Username=postgres;Password=salman 
-      - Jwt__Key=MIIJQwIBADANBgkqhkiG9w0BAQEFAASCCS0wg
-      - Jwt__Audience=NetworkIntrusionSystemUsers
-      - Jwt__Issuer=NetworkIntrusionSystem
+  redis:
+    image: redis
+    command: redis-server /usr/local/etc/redis/redis.conf
     ports:
-      - "5198:80"
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - "6379:6379"
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
     networks:
       - app-network
 
+  # nims-backend-svc:
+  #   image: salman484/nims-backend-svc:latest 
+  #   build: 
+  #     context: .
+  #     dockerfile: Backend/Dockerfile  # Fixed: Correct Dockerfile path
+  #   container_name: nims-backend
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - ASPNETCORE_URLS=http://+:80
+  #     - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=network_intrusion_db;Username=postgres;Password=salman 
+  #     - Jwt__Key=MIIJQwIBADANBgkqhkiG9w0BAQEFAASCCS0wg
+  #     - Jwt__Audience=NetworkIntrusionSystemUsers
+  #     - Jwt__Issuer=NetworkIntrusionSystem
+  #   ports:
+  #     - "5198:80"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
 volumes:
   postgres_data:
+  
+  
 
 networks:
   app-network:

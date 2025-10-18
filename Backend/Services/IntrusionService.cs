@@ -1,4 +1,3 @@
-using System;
 using Backend.Data;
 using Backend.Hubs;
 using Backend.Interfaces;
@@ -21,7 +20,7 @@ public class IntrusionService : IIntrusionService
         _context = context;
         _hubContext = hubContext;
         _userManager = userManger;
-        _logger = logger; 
+        _logger = logger;
 
 
     }
@@ -51,9 +50,9 @@ public class IntrusionService : IIntrusionService
 
         }
 
-            _logger.LogInformation($"Intrusion detected: {intrusion.AttackType} from {intrusion.SourceIP} to {intrusion.DestinationIP}");
+        _logger.LogInformation($"Intrusion detected: {intrusion.AttackType} from {intrusion.SourceIP} to {intrusion.DestinationIP}");
 
-        return intrusion; 
+        return intrusion;
     }
 
     public async Task<List<IntrusionDetection?>> GetAllInstrusionsAsync(int page = 1, int pageSize = 10)
@@ -68,14 +67,15 @@ public class IntrusionService : IIntrusionService
         if (intrusions == null || intrusions.Count == 0)
         {
             _logger.LogWarning("No intrusions found in the database.");
+
             return new List<IntrusionDetection?>();
         }
 
-        return intrusions!; 
-        }
+        return intrusions!;
+    }
 
-        
-    
+
+
 
     public async Task<DashboardStats> GetDashboardStatsAsync()
     {
@@ -86,13 +86,13 @@ public class IntrusionService : IIntrusionService
 
         return new DashboardStats
         {
-             TotalIntrusions = totalIntrusions,
-                ResolvedIntrusions = resolvedIntrusions,
-                HighSeverityIntrusions = highSeverityIntrusions,
-                TodayIntrusions = todayIntrusions
+            TotalIntrusions = totalIntrusions,
+            ResolvedIntrusions = resolvedIntrusions,
+            HighSeverityIntrusions = highSeverityIntrusions,
+            TodayIntrusions = todayIntrusions
 
 
-        }; 
+        };
     }
 
     public Task<IntrusionDetection> GetIntrusionByIdAsync(int id)
@@ -103,11 +103,11 @@ public class IntrusionService : IIntrusionService
         if (intrusion == null)
         {
             _logger.LogWarning($"Intrusion with ID {id} not found.");
-            return null!;
+            throw new Exception("Intrusion with Id {id} not found"); 
         }
 
-        return intrusion!; 
-        
+        return intrusion!;
+
     }
 
     public async Task<List<IntrusionDetection>> GetRecentIntrusionsAsync(int count = 10)
@@ -124,21 +124,42 @@ public class IntrusionService : IIntrusionService
             return null!;
         }
 
-        return recentIntrusions; 
+        return recentIntrusions;
     }
 
     public async Task ResolveIntrusionAsync(int id, string resolvedByUserId)
     {
-        var intrusion = await _context.IntrusionDetections.FindAsync(id); 
+        var intrusion = await _context.IntrusionDetections.FindAsync(id);
 
         if (intrusion != null)
         {
-             intrusion.IsResolved = true;
-                intrusion.ResolvedById = resolvedByUserId;
-                intrusion.ResolvedAt = DateTime.UtcNow;
+            intrusion.IsResolved = true;
+            intrusion.ResolvedById = resolvedByUserId;
+            intrusion.ResolvedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             _logger.LogInformation($"Intrusion with ID {id} resolved by user {resolvedByUserId}.");
-            
+
         }
+    }
+
+    public async Task<List<IntrusionDetection>> SearchIntrusionAsync(string searchTerm)
+    {
+        if (string.IsNullOrEmpty(searchTerm))
+            return await GetRecentIntrusionsAsync(20);
+
+        return await _context.IntrusionDetections
+                .Include(i => i.ResolvedBy)
+                .Where(i => i.SourceIP.Contains(searchTerm) ||
+                            i.DestinationIP.Contains(searchTerm) ||
+                            i.AttackType.Contains(searchTerm) ||
+                            i.Protocol.Contains(searchTerm)
+
+
+                )
+                .OrderByDescending(i => i.DetectedAt)
+                .Take(50)
+                .ToListAsync(); 
+
+        
     }
 }

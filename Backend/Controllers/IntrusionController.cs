@@ -173,9 +173,9 @@ namespace Backend.Controllers
             }
 
         }
-        
 
-         [HttpGet("dashboard/stats")]
+
+        [HttpGet("dashboard/stats")]
         public async Task<IActionResult> GetDashboardStats()
         {
             try
@@ -184,7 +184,7 @@ namespace Backend.Controllers
 
                 if (stats == null)
                 {
-                  _logger.LogInformation("No dashboard stats found");
+                    _logger.LogInformation("No dashboard stats found");
                     return NotFound(new ResponseDto
                     {
                         Success = false,
@@ -194,14 +194,14 @@ namespace Backend.Controllers
                 }
 
                 _logger.LogInformation("Fetched dashboard stats");
-                return Ok (new ResponseDto
+                return Ok(new ResponseDto
                 {
                     Success = true,
                     Message = "Dashboard stats fetched successfully",
                     Data = stats
                 });
 
-                
+
 
             }
             catch (Exception ex)
@@ -216,5 +216,48 @@ namespace Backend.Controllers
             }
 
         }
+        
+         [HttpGet("search")]
+        public async Task<IActionResult> SearchIntrusion([FromQuery] string q)
+        {
+            try
+            {
+                var intrusions = await _intrusionService.SearchIntrusionAsync(q);
+
+                if (intrusions == null)
+                {
+                  _logger.LogInformation("No Intrusions found");
+                    return NotFound(new ResponseDto
+                    {
+                        Success = false,
+                        Message = "No Intrusions found",
+                        Data = null
+                    });
+                }
+
+                _logger.LogInformation("Fetched intrusions Successfully");
+                return Ok (new ResponseDto
+                {
+                    Success = true,
+                    Message = "Fetched intrusions Successfully",
+                    Data = intrusions
+                });
+
+                
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while Searching Intrusions");
+                return StatusCode(500, new ResponseDto
+                {
+                    Success = false,
+                    Message = "Error occurred while Searching Intrusions",
+                    Data = null
+                });
+            }
+
+        }
+
     }
 }

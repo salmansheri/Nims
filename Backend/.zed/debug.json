@@ -2,4 +2,13 @@
 //
 // For more documentation on how to configure debug tasks,
 // see: https://zed.dev/docs/debugger
-[]
+[
+  {
+    "label": "Launch .NET Project",
+    "adapter": "vscode",
+    "request": "launch",
+    "program": "${workspaceRoot}/bin/Debug/net9.0/Backend.dll", // Adjust path and target framework as needed
+    "cwd": "${workspaceRoot}",
+    "args": []
+  }
+]
