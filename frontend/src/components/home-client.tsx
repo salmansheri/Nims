@@ -7,13 +7,13 @@ import { useEffect } from "react";
 export const HomeClient = () => {
   const router = useRouter();
 
-  useEffect(() => {
-    if (isAuthenticated()) {
-      router.push("/dashboard");
-    } else {
-      router.push("/login");
-    }
-  }, [router]);
+  // useEffect(() => {
+  //   if (isAuthenticated()) {
+  //     router.push("/dashboard");
+  //   } else {
+  //     router.push("/login");
+  //   }
+  // }, [router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

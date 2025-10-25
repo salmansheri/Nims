@@ -11,6 +11,8 @@ public interface IAuthService
     Task<AuthResponseDto> Login(LoginDto request);
     Task<IdentityUser?> GetUserByEmail(string email);
     Task<bool> Logout(string userId);
-    Task<bool> ValidateToken(string userId, string token); 
+    Task<bool> ValidateToken(string userId, string token);
+    Task<(IdentityUser User, IList<string> Roles)?> GetCurrentUserAsync(string token);
+    Task<string> GetUserIdAsync(string userEmail); 
 
 }

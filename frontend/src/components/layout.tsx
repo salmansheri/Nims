@@ -1,8 +1,9 @@
 "use client";
-import { removeToken } from "@/lib/auth";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "motion/react";
+import Link from "next/link";
+import { removeCookie } from "@/lib/util";
+import { toast } from "sonner";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,8 +20,14 @@ export const Layout = ({ children }: LayoutProps) => {
     { name: "Reports", href: "/reports" },
   ];
 
-  const handleLogout = () => {
-    removeToken();
+  const handleLogout = async () => {
+    const isCookieRemoved = await removeCookie("token");
+    if (!isCookieRemoved) {
+      throw new Error("Something Went while removing token");
+    }
+
+    toast.success("Logged out Successfully");
+
     router.push("/login");
   };
 

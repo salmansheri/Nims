@@ -9,6 +9,9 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using System.Text;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using System.Web; 
 
 
 
@@ -78,9 +81,9 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDto> Register(RegisterDto request)
     {
-        var existingUser = _userManager.FindByEmailAsync(request.Email);
+        var existingUser = await _userManager.FindByEmailAsync(request.Email);
 
-        if (existingUser.Result != null)
+        if (existingUser != null)
         {
             throw new Exception("User Already Exists");
         }
@@ -113,6 +116,10 @@ public class AuthService : IAuthService
 
         var token = GenerateJwtToken(user);
 
+        
+        
+    
+
         await _redisService.SetTokenAsync(user.Id, token, TimeSpan.FromDays(7));
 
         return new AuthResponseDto
@@ -131,7 +138,102 @@ public class AuthService : IAuthService
 
     public async Task<bool> ValidateToken(string userId, string token)
     {
-        return await _redisService.isTokenValidAsync(userId, token); 
+        return await _redisService.isTokenValidAsync(userId, token);
+    }
+
+    
+
+
+    private async Task<IdentityUser?> ValidateUserAsync(string token)
+    {
+        if (string.IsNullOrEmpty(token))
+            return null;
+
+        try
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+
+            var jwtkey = _configuration["jwt:Key"];
+
+            if (string.IsNullOrEmpty(jwtkey))
+                throw new InvalidOperationException("Jwt key is not configured");
+
+            var key = Encoding.ASCII.GetBytes(jwtkey);
+
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidateIssuer = true,
+                ValidIssuer = _configuration["jwt:Issuer"],
+                ValidateAudience = true,
+                ValidAudience = _configuration["jwt:Audience"],
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+
+            };
+
+            var principal = tokenHandler.ValidateToken(token, validationParameters, out SecurityToken validatedToken);
+
+            if (validatedToken is not JwtSecurityToken jwtToken)
+                return null;
+
+            if (jwtToken.Header.Alg != SecurityAlgorithms.HmacSha256)
+                return null;
+
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrEmpty(userId))
+                return null;
+
+            var user = await _userManager.FindByIdAsync(userId);
+
+            if (user == null)
+                return null;
+
+            return user;
+
+
+        }
+        catch (SecurityTokenInvalidSignatureException)
+        {
+            Console.WriteLine("JWT token signature is invalid");
+            return null;
+        }
+        catch (SecurityTokenException ex)
+        {
+            Console.WriteLine($"JWT token validation failed: {ex.Message}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Unexpected error during token validation: {ex.Message}");
+            return null;
+        }
+    }
+
+    public async Task<(IdentityUser User, IList<string> Roles)?> GetCurrentUserAsync(string token)
+    {
+        var user = await ValidateUserAsync(token);
+
+        if (user == null)
+            return null;
+
+        var roles = await _userManager.GetRolesAsync(user);
+        return (user, roles);
+
+    } 
+    
+    public async Task<string>  GetUserIdAsync(string userEmail)
+    {
+        var user = await _userManager.FindByEmailAsync(userEmail);
+
+        if (user == null)
+        {
+            return ""; 
+        }
+        return user.Id;
+        
     }
 
     private string GenerateJwtToken(IdentityUser user)

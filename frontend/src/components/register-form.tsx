@@ -1,11 +1,13 @@
 "use client";
 
-import { authAPI } from "@/lib/api";
-import { setToken } from "@/lib/auth";
+import { API_BASE_URL, authAPI } from "@/lib/api";
+import { setEmailLS } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
+import { setCookies } from "@/lib/util";
+import Link from "next/link";
 
 export default function RegisterForm() {
   const [email, setEmail] = useState("");
@@ -14,6 +16,7 @@ export default function RegisterForm() {
   const [error, setError] = useState<string>("");
 
   const router = useRouter();
+  console.log(process.env.NEXT_PUBLIC_BACKEND_URL);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -21,30 +24,33 @@ export default function RegisterForm() {
     setError("");
 
     try {
-      const response = await authAPI.register({ email, password });
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
 
       console.log(response.status);
+      const data = await response.json();
 
-      if (response.status === 200 && response.data.success) {
-        const isTokenSet = setToken(response.data.data.token);
-        console.log("registered successfully");
-        toast.success("Registered Successfully!");
+      if (response.ok || data.success) {
+        const hasCookieSet = await setCookies(data.data.token);
 
-        if (!isTokenSet) {
-          toast.error("Cannot set token");
-          throw new Error("Cannot set token");
-        }
-
-        setTimeout(() => {
+        if (hasCookieSet) {
           router.push("/dashboard");
-          router.refresh();
-        }, 50);
-      } else {
-        throw new Error(response.data.messsage);
+        }
       }
-    } catch (error: any) {
-      setError(error.message);
-      toast.error(error.message);
+    } catch (error) {
+      if (error instanceof Error) {
+        const err = error as Error;
+        setError(err.message);
+        toast.error(err.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -117,6 +123,15 @@ export default function RegisterForm() {
               {isLoading ? "Signing up..." : "Sign Up"}
             </button>
           </div>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Already Have an Account?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-blue-600 hover:text-blue-500"
+            >
+              Sign In here
+            </Link>
+          </p>
         </form>
       </motion.div>
     </div>

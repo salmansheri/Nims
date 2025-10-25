@@ -7,17 +7,21 @@ namespace Backend.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AuthController: ControllerBase
+    public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
         private readonly ILogger<AuthController> _logger;
-        private readonly IRedisService _redisService; 
+        private readonly IRedisService _redisService;
 
-        public AuthController(IAuthService authService, ILogger<AuthController> logger, IRedisService redisService)
+        public AuthController(
+            IAuthService authService,
+            ILogger<AuthController> logger,
+            IRedisService redisService
+        )
         {
             _authService = authService;
             _logger = logger;
-            _redisService = redisService; 
+            _redisService = redisService;
         }
 
         [HttpPost("register")]
@@ -26,36 +30,43 @@ namespace Backend.Controllers
             try
             {
                 var response = await _authService.Register(request);
+
                 if (response == null)
                 {
                     _logger.LogWarning("Registration failed for user: {Email}", request.Email);
-                    return BadRequest(new ResponseDto
-                    {
-                        Success = false,
-                        Message = "Registration failed",
-                        Data = null
-                    });
+                    return BadRequest(
+                        new ResponseDto
+                        {
+                            Success = false,
+                            Message = "Registration failed",
+                            Data = null,
+                        }
+                    );
                 }
 
                 _logger.LogInformation("User registered successfully: {Email}", request.Email);
 
-                return Ok(new ResponseDto
-                {
-                    Success = true,
-                    Message = "User registered Successfully",
-                    Data = response
-                });
-
+                return Ok(
+                    new ResponseDto
+                    {
+                        Success = true,
+                        Message = "User registered Successfully",
+                        Data = response,
+                    }
+                );
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred during registration");
-                return StatusCode(500, new ResponseDto
-                {
-                    Success = false,
-                    Message = $"An error occurred during registration: {ex.Message}",
-                    Data = null
-                });
+                return StatusCode(
+                    500,
+                    new ResponseDto
+                    {
+                        Success = false,
+                        Message = $"An error occurred during registration: {ex.Message}",
+                        Data = null,
+                    }
+                );
             }
         }
 
@@ -65,36 +76,46 @@ namespace Backend.Controllers
             try
             {
                 var response = await _authService.Login(request);
+
+                var token = response.Token;
+
+                if (string.IsNullOrEmpty(token))
+                    return BadRequest("Token is Empty");
+
                 if (response == null)
                 {
                     _logger.LogWarning("Login failed for user: {Email}", request.Email);
-                    return Unauthorized(new ResponseDto
-                    {
-                        Success = false,
-                        Message = "Login failed",
-                        Data = null
-                    });
+                    return Unauthorized(
+                        new ResponseDto
+                        {
+                            Success = false,
+                            Message = "Login failed",
+                            Data = null,
+                        }
+                    );
                 }
 
-
                 _logger.LogInformation("User logged in successfully: {Email}", request.Email);
-                return Ok(new ResponseDto
-                {
-                    Success = true,
-                    Message = "User registered Successfully",
-                    Data = response
-                });
-
+                return Ok(
+                    new ResponseDto
+                    {
+                        Success = true,
+                        Message = "User registered Successfully",
+                        Data = response,
+                    }
+                );
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred during registration");
-                return BadRequest(new ResponseDto
-                {
-                    Success = false,
-                    Message = "An error occurred during registration",
-                    Data = null
-                });
+                return BadRequest(
+                    new ResponseDto
+                    {
+                        Success = false,
+                        Message = "An error occurred during registration",
+                        Data = null,
+                    }
+                );
             }
         }
 
@@ -110,114 +131,127 @@ namespace Backend.Controllers
                     await _authService.Logout(userId);
                 }
 
-                return Ok(new ResponseDto
-                {
-                    Success = true,
-                    Message = "Logget out Successfully",
-
-                });
+                return Ok(new ResponseDto { Success = true, Message = "Logget out Successfully" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred during registration");
-                return BadRequest(new ResponseDto
-                {
-                    Success = false,
-                    Message = "An error occurred during Logout",
-                    Data = null
-                });
-
+                return BadRequest(
+                    new ResponseDto
+                    {
+                        Success = false,
+                        Message = "An error occurred during Logout",
+                        Data = null,
+                    }
+                );
             }
-
         }
 
-
-        [HttpPost("validate")]
-        public async Task<IActionResult> Validate()
+        [HttpGet("get-token/{userEmail}")]
+        public async Task<IActionResult> GetToken([FromRoute] string userEmail)
         {
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userId = await _authService.GetUserIdAsync(userEmail);
 
-                var token = Request.Headers["Authorization"].ToString().Replace("Bearer", "");
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return BadRequest(
+                        new ResponseDto
+                        {
+                            Success = false,
+                            Message = "Cannot get User Id",
+                            Data = null,
+                        }
+                    );
+                }
+
+                var token = await _redisService.GetTokenAsync(userId);
 
                 if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(token))
                     return Unauthorized();
 
                 var isValid = await _authService.ValidateToken(userId, token);
 
-                if (!isValid) return Unauthorized();
+                if (!isValid)
+                    return Unauthorized();
 
-                return Ok(new ResponseDto
-                {
-                    Success = true,
-                    Message = "Validated Successfully",
-
-                });
+                return Ok(
+                    new ResponseDto
+                    {
+                        Success = true,
+                        Message = "Got Token Successfully",
+                        Data = new { Token = token },
+                    }
+                );
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred during Token Validation");
-                return BadRequest(new ResponseDto
-                {
-                    Success = false,
-                    Message = "An error occurred during Token Validation",
-                    Data = null
-                });
-
+                return BadRequest(
+                    new ResponseDto
+                    {
+                        Success = false,
+                        Message = "An error occurred during Token Validation",
+                        Data = null,
+                    }
+                );
             }
-
         }
-        
 
-          [HttpGet("get-token")]
-        public async Task<IActionResult> GetToken()
-        { try
+        [HttpGet("get-current-user/{userEmail}")]
+        public async Task<IActionResult> GetCurrentUser([FromRoute] string userEmail)
+        {
+            try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userId = await _authService.GetUserIdAsync(userEmail);
 
                 if (string.IsNullOrEmpty(userId))
                 {
-                    return BadRequest(new ResponseDto
-                    {
-                        Success = false,
-                        Message = "Cannot get User Id",
-                        Data = null
+                    return Unauthorized();
+                }
+                var token = await _redisService.GetTokenAsync(userId);
 
-                    }); 
+                if (string.IsNullOrEmpty(token))
+                {
+                    return Unauthorized();
                 }
 
+                var currentUser = await _authService.GetCurrentUserAsync(token);
 
-                var token = await _redisService.GetTokenAsync(userId); 
-
-                if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(token))
+                if (currentUser is null)
                     return Unauthorized();
 
-                var isValid = await _authService.ValidateToken(userId, token);
+                var (user, _) = currentUser.Value;
 
-                if (!isValid) return Unauthorized(); 
-
-            return Ok(new ResponseDto
-            {
-                Success = true,
-                Message = "Got Token Successfully",
-                Data = new { Token = token }
-
-            });  
-            } catch (Exception ex)
-            {
-                 _logger.LogError(ex, "Error occurred during Token Validation");
-                return BadRequest(new ResponseDto
+                var userObj = new
                 {
-                    Success = false,
-                    Message = "An error occurred during Token Validation",
-                    Data = null
-                });
-                
-            }
-           
-        }
-        
+                    Email = user.Email,
+                    Username = user.UserName,
+                    UserId = user.Id,
+                };
 
+                return Ok(
+                    new ResponseDto
+                    {
+                        Success = true,
+                        Message = "Successfully retrieved GetCurrentUser",
+                        Data = userObj,
+                    }
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during GetCurrentUser");
+                return BadRequest(
+                    new ResponseDto
+                    {
+                        Success = false,
+                        Message = "Error occurred during GetCurrentUser",
+                        Data = null,
+                    }
+                );
+            }
+        }
     }
 }

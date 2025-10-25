@@ -1,16 +1,15 @@
 // Configure Serilog
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Backend.Data;
-using Backend.Services;
 using Backend.Hubs;
-using Microsoft.AspNetCore.Identity;
-using Serilog;
 using Backend.Interfaces;
+using Backend.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Serilog;
 using StackExchange.Redis;
-
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
@@ -19,103 +18,109 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
 // Add services to the container.
 
 builder.Services.AddControllers();
 builder.Host.UseSerilog();
+
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 // Datebase
-builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
 
-
-// Redis 
+// Redis
 builder.Services.AddSingleton<IConnectionMultiplexer>(options =>
 {
-    var configuration = ConfigurationOptions.Parse(builder.Configuration.GetConnectionString("Redis")!);
+    var configuration = ConfigurationOptions.Parse(
+        builder.Configuration.GetConnectionString("Redis")!
+    );
 
     return ConnectionMultiplexer.Connect(configuration);
-
 });
-
-
 
 // Add Identity
-builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
-{
-    options.Password.RequiredLength = 6;
-    options.Password.RequireDigit = true;
-    options.Password.RequireLowercase = true;
-    options.Password.RequireUppercase = true;
-    options.Password.RequireNonAlphanumeric = false;
-    options.User.RequireUniqueEmail = true;
-})
-.AddEntityFrameworkStores<ApplicationDbContext>()
-.AddDefaultTokenProviders();
+builder
+    .Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+    {
+        options.Password.RequiredLength = 6;
+        options.Password.RequireDigit = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireNonAlphanumeric = false;
+        options.User.RequireUniqueEmail = true;
+    })
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
 
 // Authentication
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+builder
+    .Services.AddAuthentication(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
-    };
-
-    // SignalR JWT Support 
-    options.Events = new JwtBearerEvents
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
     {
-        OnMessageReceived = context =>
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            var accessToken = context.Request.Query["access_token"];
-            var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/alertHub"))
-            {
-                context.Token = accessToken;
-            }
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
+            ),
+        };
 
-            return Task.CompletedTask;
-        }
-    }; 
-});
+        // SignalR JWT Support
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/alertHub"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            },
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IIntrusionService, IntrusionService>();
 builder.Services.AddScoped<IAlertService, AlertService>();
-builder.Services.AddScoped<IRedisService, RedisService>(); 
-
-
+builder.Services.AddScoped<IRedisService, RedisService>();
 
 // SignalR
 builder.Services.AddSignalR();
 
-
-
 // CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.WithOrigins("http://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
+    options.AddPolicy(
+        "AllowFrontend",
+        policy =>
+        {
+            policy
+                .WithOrigins("http://localhost:3000")
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        }
+    );
 });
-
 
 var app = builder.Build();
 
@@ -132,8 +137,6 @@ app.UseAuthentication(); // ✅ Correct: Authentication first
 app.UseAuthorization(); // ✅ Correct: Authorization second
 
 app.MapControllers();
-
-
 
 app.MapHub<AlertHub>("/alerthub");
 

@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import * as signalR from "@microsoft/signalr";
 import { useRouter } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth";
 import { useRecentIntrusions } from "@/hooks/use-recent-intrusions";
 import { Layout } from "./layout";
 import { motion } from "motion/react";
-import type { Intrusion } from "@/lib/api";
 import { DashboardStats } from "./dashboard-stats";
+import { placeHolderList } from "@/lib/constants";
+import { getCookie } from "@/lib/util";
+import { SIGNAL_URL } from "@/lib/api";
 
 export const DashboardClient = () => {
   const [connection, setConnection] = useState<signalR.HubConnection | null>(
@@ -18,23 +19,20 @@ export const DashboardClient = () => {
 
   const router = useRouter();
 
-  // Redirect if not authenticated
-
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push("/login");
-    }
+    const gettoken = async () => {
+      const token = await getCookie("token");
+      console.log("token", token);
+    };
 
-    console.log("isAuthenticated", isAuthenticated());
-  }, [router]);
+    gettoken();
+  });
 
   const { data: recentIntrusions, isLoading } = useRecentIntrusions();
 
   useEffect(() => {
-    if (!isAuthenticated()) return;
-
     const newConnection = new signalR.HubConnectionBuilder()
-      .withUrl("http://localhost:5198/alertHub")
+      .withUrl(`${SIGNAL_URL}`)
       .withAutomaticReconnect()
       .build();
 
@@ -48,7 +46,6 @@ export const DashboardClient = () => {
         .then(() => {
           console.log("Connected to SignalR");
 
-          // biome-ignore lint/suspicious/noExplicitAny: for
           connection.on("ReceiveAlert", (alert: any) => {
             setRecentAlerts((prev) => [alert, ...prev.slice(0, 4)]);
 
@@ -98,10 +95,6 @@ export const DashboardClient = () => {
     }
   };
 
-  // if (!isAuthenticated()) {
-  //   console.log(isAuthenticated());
-  //   return null;
-  // }
   return (
     <Layout>
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -117,7 +110,6 @@ export const DashboardClient = () => {
           <DashboardStats />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Recent Intrusions  */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -130,14 +122,13 @@ export const DashboardClient = () => {
               </div>
               <div className="divide-y divide-gray-500">
                 {isLoading
-                  ? [...Array(5)].map((_, i) => (
-                      // biome-ignore lint/suspicious/noArrayIndexKey: for
-                      <div key={i} className="p-4 animate-pulse">
+                  ? placeHolderList.map((p) => (
+                      <div key={p} className="p-4 animate-pulse">
                         <div className="h-4 bg-gray-600 rounded w-3/4 mb-2"></div>
                         <div className="h-3 bg-gray-600 rounded w-1/2"></div>
                       </div>
                     ))
-                  : recentIntrusions?.data.map((intrusion: Intrusion) => (
+                  : recentIntrusions?.data.map((intrusion: any) => (
                       <div key={intrusion.id} className="p-4 hover:bg-gray-50">
                         <div className="flex justify-between items-start">
                           <div>
@@ -162,7 +153,7 @@ export const DashboardClient = () => {
               </div>
             </motion.div>
 
-            {/* Recent Alerts  */}
+            {/* Recent Alertsi */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -179,9 +170,8 @@ export const DashboardClient = () => {
                     No recent alerts
                   </div>
                 ) : (
-                  recentAlerts.map((alert, index) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: for now
-                    <div key={index} className="p-4 hover:bg-gray-50">
+                  recentAlerts.map((alert) => (
+                    <div key={alert.id} className="p-4 hover:bg-gray-50">
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="text-sm font-medium text-gray-900">

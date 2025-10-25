@@ -1,11 +1,11 @@
 "use client";
 
-import { authAPI } from "@/lib/api";
-import { setToken } from "@/lib/auth";
+import { API_BASE_URL } from "@/lib/api";
+import { getCookie, setCookies } from "@/lib/util";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function LoginForm() {
@@ -22,29 +22,52 @@ export default function LoginForm() {
     setError("");
 
     try {
-      const response = await authAPI.login({ email, password });
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
 
-      console.log(response.data);
+      console.log(response.status);
+      const data = await response.json();
 
-      if (response.status === 200 && response.data.success) {
-        const isTokenSet = setToken(response.data.data.token);
+      console.log(data);
+      console.log(response.ok);
 
-        if (!isTokenSet) throw new Error("Error in setting token");
+      if (response.ok || data.success) {
+        const hasCookieSet = await setCookies(data.data.token);
+        console.log(hasCookieSet);
 
-        toast.success("Successfully Signed in!");
-        setTimeout(() => {
+        if (hasCookieSet) {
+          toast.success("Logged In Successfully");
           router.push("/dashboard");
-          router.refresh();
-        }, 50);
+        }
       }
-      // biome-ignore lint/correctness/noUnusedVariables: for
-      // biome-ignore lint/suspicious/noExplicitAny: for
-    } catch (error: any) {
+    } catch (error) {
+      if (error instanceof Error) {
+        const err = error as Error;
+        setError(err.message);
+        console.log(err.message);
+        toast.error(err.message);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    const gettoken = async () => {
+      const token = await getCookie("token");
+      console.log("token", token);
+    };
+
+    gettoken();
+  });
   return (
     <div className="min-h-screen flex items-center justify-center  py-12 px-4 sm:px-6 lg:px-8">
       <motion.div
